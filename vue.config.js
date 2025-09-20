@@ -6,12 +6,13 @@ module.exports = {
     node: false,
     // Disable eval. Required for Chrome extension CSP.
     // See https://github.com/webpack/webpack/issues/5627#issuecomment-374386048.
-    devtool: 'inline-source-map',
+    devtool: 'source-map',
     // Override vue-cli's file naming to keep consistent naming
     // between development and production builds.
     output: {
       filename: '[name].js',
-      chunkFilename: '[name].js'
+      chunkFilename: '[name].js',
+      globalObject: 'self'
     },
     plugins: [
       new FileManagerPlugin({

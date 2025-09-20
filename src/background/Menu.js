@@ -1,6 +1,15 @@
 import M from '../Messages';
 import { OptionsClient } from './Services';
 
+const menuHandlers = new Map();
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  let handler = menuHandlers.get(info.menuItemId);
+  if (handler) {
+    handler(info, tab);
+  }
+});
+
 class Menu
 {
   constructor(contexts, ...groups) {
@@ -13,50 +22,65 @@ class Menu
   }
 
   apply() {
-    chrome.contextMenus.removeAll();
+    chrome.contextMenus.removeAll(() => {
+      menuHandlers.clear();
 
-    let firstGroup = true;
-    for (let group of this.groups) {
-      let firstItem = true;
-      for (let item of group.items) {
-        if (!item.visible) {
-          continue;
-        }
+      let idCounter = 0;
+      const nextId = prefix => `marinara-${prefix}-${idCounter++}`;
 
-        if (firstItem && !firstGroup) {
-          chrome.contextMenus.create({ type: 'separator', contexts: this.contexts });
-        }
+      let firstGroup = true;
+      for (let group of this.groups) {
+        let firstItem = true;
+        for (let item of group.items) {
+          if (!item.visible) {
+            continue;
+          }
 
-        firstGroup = false;
-        firstItem = false;
-
-        if (item instanceof ParentMenu) {
-          let id = chrome.contextMenus.create({
-            title: item.title,
-            contexts: this.contexts
-          });
-
-          for (let child of item.children) {
-            if (!child.visible) {
-              continue;
-            }
-
+          if (firstItem && !firstGroup) {
             chrome.contextMenus.create({
-              title: child.title,
-              contexts: this.contexts,
-              onclick: () => child.run(),
-              parentId: id
+              id: nextId('separator'),
+              type: 'separator',
+              contexts: this.contexts
             });
           }
-        } else {
-          chrome.contextMenus.create({
-            title: item.title,
-            contexts: this.contexts,
-            onclick: () => item.run()
-          });
+
+          firstGroup = false;
+          firstItem = false;
+
+          if (item instanceof ParentMenu) {
+            let id = nextId('parent');
+            chrome.contextMenus.create({
+              id,
+              title: item.title,
+              contexts: this.contexts
+            });
+
+            for (let child of item.children) {
+              if (!child.visible) {
+                continue;
+              }
+
+              let childId = nextId('child');
+              chrome.contextMenus.create({
+                id: childId,
+                title: child.title,
+                contexts: this.contexts,
+                parentId: id
+              });
+              menuHandlers.set(childId, () => child.run());
+            }
+          } else {
+            let itemId = nextId('item');
+            chrome.contextMenus.create({
+              id: itemId,
+              title: item.title,
+              contexts: this.contexts
+            });
+            menuHandlers.set(itemId, () => item.run());
+          }
         }
       }
-    }
+    });
   }
 }
 

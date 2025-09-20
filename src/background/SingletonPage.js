@@ -21,16 +21,19 @@ class SingletonPage
     let targetUrl = new URL(url);
     let targetCanonical = canonical(targetUrl);
 
-    let windows = chrome.extension.getViews();
-    for (let window of windows) {
-      if (canonical(new URL(window.location.href)) !== targetCanonical) {
+    let tabs = await Chrome.tabs.query({});
+    for (let tab of tabs) {
+      if (!tab.url) {
+        continue;
+      }
+
+      if (canonical(new URL(tab.url)) !== targetCanonical) {
         continue;
       }
 
       // We found a matching page. Update its hash and return it.
-      let tabId = await new Promise(resolve => window.chrome.tabs.getCurrent(tab => resolve(tab.id)));
-      window.location.hash = targetUrl.hash;
-      return new SingletonPage(tabId);
+      await Chrome.tabs.update(tab.id, { url: targetUrl.href });
+      return new SingletonPage(tab.id);
     }
 
     // Page does not exist, so create it.
