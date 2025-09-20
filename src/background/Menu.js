@@ -1,12 +1,21 @@
 import M from '../Messages';
-import { OptionsClient } from './Services';
+import { SingletonPage, PageHost } from './SingletonPage';
 
 const menuHandlers = new Map();
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   let handler = menuHandlers.get(info.menuItemId);
-  if (handler) {
-    handler(info, tab);
+  if (!handler) {
+    return;
+  }
+
+  try {
+    let result = handler(info, tab);
+    if (result && typeof result.then === 'function') {
+      result.catch(error => console.error(error));
+    }
+  } catch (e) {
+    console.error(e);
   }
 });
 
@@ -26,7 +35,7 @@ class Menu
       menuHandlers.clear();
 
       let idCounter = 0;
-      const nextId = prefix => `marinara-${prefix}-${idCounter++}`;
+      const nextId = prefix => `marinara-${prefix}-${Math.random().toString(16).slice(2)}-${idCounter++}`;
 
       let firstGroup = true;
       for (let group of this.groups) {
@@ -265,10 +274,6 @@ class ResumeTimerAction extends Action
 
 class PomodoroHistoryAction extends Action
 {
-  constructor() {
-    super();
-  }
-
   get title() {
     return M.pomodoro_history;
   }
@@ -278,7 +283,10 @@ class PomodoroHistoryAction extends Action
   }
 
   async run() {
-    await OptionsClient.once.showHistoryPage();
+    let manifest = chrome.runtime.getManifest();
+    let url = chrome.runtime.getURL(`${manifest.options_page}#/history`);
+    let page = await SingletonPage.show(url, PageHost.Tab);
+    page.focus();
   }
 }
 
@@ -331,7 +339,7 @@ function createPomodoroMenu(timer) {
   let startLongBreak = new StartLongBreakAction(timer);
   let viewHistory = new PomodoroHistoryAction();
 
-  let inactive = new Menu(['browser_action'],
+  let inactive = new Menu(['action'],
     new MenuGroup(
       startCycle,
       startFocus,
@@ -343,7 +351,7 @@ function createPomodoroMenu(timer) {
     )
   );
 
-  let active = new Menu(['browser_action'],
+  let active = new Menu(['action'],
     new MenuGroup(
       pause,
       resume,

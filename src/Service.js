@@ -46,7 +46,25 @@ class ServiceBroker
     // Service is defined in another context, use sendMessage to call it.
     return await new Promise((resolve, reject) => {
       let message = { serviceName, methodName, args };
-      chrome.runtime.sendMessage(message, ({ result, error }) => {
+      chrome.runtime.sendMessage(message, response => {
+        let lastError = chrome.runtime.lastError;
+        if (lastError) {
+          if (/Receiving end does not exist/.test(lastError.message)) {
+            console.log(`Service not available: ${serviceName}`);
+            resolve(undefined);
+            return;
+          }
+
+          reject(lastError.message);
+          return;
+        }
+
+        if (!response) {
+          resolve(undefined);
+          return;
+        }
+
+        let { result, error } = response;
         if (error !== undefined) {
           reject(error);
         } else {
@@ -144,6 +162,11 @@ class Service
       serviceName: this.serviceName,
       eventName,
       args
+    }, () => {
+      let lastError = chrome.runtime.lastError;
+      if (lastError && lastError.message && !/Receiving end does not exist/.test(lastError.message)) {
+        console.error(lastError);
+      }
     });
   }
 
