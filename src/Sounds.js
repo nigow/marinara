@@ -65,24 +65,67 @@ async function play(filename) {
     return;
   }
 
-  // We use AudioContext instead of Audio since it works more
-  // reliably in different browsers (Chrome, FF, Brave).
-  let context = new AudioContext();
+  const AudioCtor = globalThis.AudioContext || globalThis.webkitAudioContext;
+  if (AudioCtor) {
+    let context = new AudioCtor();
 
-  let source = context.createBufferSource();
-  source.connect(context.destination);
-  source.buffer = await new Promise(async (resolve, reject) => {
-    let content = await Chrome.files.readBinary(filename);
-    context.decodeAudioData(content, buffer => resolve(buffer), error => reject(error));
-  });
+    let source = context.createBufferSource();
+    source.connect(context.destination);
+    source.buffer = await new Promise(async (resolve, reject) => {
+      try {
+        let content = await Chrome.files.readBinary(filename);
+        context.decodeAudioData(content, buffer => resolve(buffer), error => reject(error));
+      } catch (e) {
+        reject(e);
+      }
+    });
 
-  await new Promise(resolve => {
-    // Cleanup audio context after sound plays.
-    source.onended = () => {
-      context.close();
-      resolve();
+    await new Promise(resolve => {
+      source.onended = () => {
+        context.close();
+        resolve();
+      };
+      source.start();
+    });
+    return;
+  }
+
+  if (!chrome.offscreen || !chrome.runtime?.sendMessage) {
+    console.warn('Audio playback unavailable in this context.');
+    return;
+  }
+
+  const offscreenUrl = 'modules/offscreen.html';
+  const hasDocument = chrome.offscreen.hasDocument ? await chrome.offscreen.hasDocument() : false;
+  if (!hasDocument) {
+    try {
+      await chrome.offscreen.createDocument({
+        url: offscreenUrl,
+        reasons: ['AUDIO_PLAYBACK'],
+        justification: 'Play extension notification sounds.'
+      });
+    } catch (e) {
+      console.error('Failed to create offscreen document', e);
+      return;
     }
-    source.start();
+  }
+
+  await new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({ type: 'offscreen-play-audio', file: filename }, response => {
+      const error = chrome.runtime.lastError;
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      if (response && response.error) {
+        reject(new Error(response.error));
+      } else {
+        resolve();
+      }
+    });
+  }).catch(error => {
+    console.error(error);
   });
 }
 

@@ -75,6 +75,7 @@ class TimerSoundObserver
       this.timerSound && await this.timerSound.close();
 
       if (phase === Phase.Focus && timerSoundSettings) {
+        console.log("Starting timer sound");
         this.timerSound = await createTimerSound(timerSoundSettings);
         this.timerSound.start();
       } else {
@@ -252,9 +253,9 @@ class CountdownObserver {
       [Phase.Focus]: 'focus',
       [Phase.ShortBreak]: 'shortBreak',
       [Phase.LongBreak]: 'longBreak'
-    }[phase]];
+    }[phase]] || {};
 
-    const { host, resolution } = settings.countdown;
+    const { host, resolution } = settings.countdown || {};
     if (!host) return;
 
     let page = null;

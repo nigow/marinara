@@ -62,6 +62,8 @@
   "images/settings.svg",
   "images/spinner.svg",
   "images/start.png",
+  "modules/offscreen.html",
+  "modules/offscreen.js",
   "LICENSE",
   "manifest.json",
   "modules/background-sw.js",

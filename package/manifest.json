@@ -15,7 +15,8 @@
     "notifications",
     "tabs",
     "windows",
-    "system.display"
+    "system.display",
+    "offscreen"
   ],
   "action": {
     "default_title": "Marinara",
